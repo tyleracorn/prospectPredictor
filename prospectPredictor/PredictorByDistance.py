@@ -12,6 +12,11 @@ def get_tmp_file(dir:[pathlib.Path, str]=None):
 
 class PredictorByDistance():
     def __init__(self, preppedShape, rasterTemplate, architect='varriogram', archType='exponential', archRange=10000, modelDir='models'):
+        '''
+        distance based predictor. takes the distance from 2 or more shapes units and calculates
+        a prospectivity value between 0 (unlikely) and 1 (likely). uses a pseudo exponential
+        varriogram weighting to calculates prospectivity weights based on max range
+        '''
         self.shapes = preppedShape.dictOfProjShapes
         self.shapeKeys = self.shapes.keys()
         self.rasterTemplate = rasterTemplate
@@ -23,6 +28,7 @@ class PredictorByDistance():
         self.architect = architect
         self.archType = archType
         self.archRange = archRange
+        if isinstance(modelDir, str): modelDir = pathlib.Path(modelDir)
         self.modelDir = modelDir
 
     def _testWriteablePath(self):
@@ -164,30 +170,27 @@ class PredictorByDistance():
         '''
         if self.modelDir: self._testWriteablePath()
             
-        if isinstance(file, [pathlib.Path, str]):
-            target = self.modelDir/file 
-        else:
-            file
-            
+        fpath = self.modelDir.joinpath(file)
+        if not fpath.suffix: fpath = fpath.with_suffix('.tiff')
+
         bands = bands.lower()
         targets = dict()
         if bands == 'all':
-            targets = {'pred_'/target: self.predictRaster}
+            targets.update({fpath.with_name(fpath.stem + '_pred' + fpath.suffix): self.predictRaster})
             for key in self.shapeKeys:
-                targets[key/'_'/target] = self.distRasters[key]
+                targets.update({fpath.with_name(fpath.stem + '_' + key + fpath.suffix): self.distRasters[key]})
         elif bands == 'prediction':
-            targets = {'pred_'/target: self.predictRaster}
+            targets.update({fpath.with_name(fpath.stem + '_pred' + fpath.suffix): self.predictRaster})
         elif bands == 'distances':
-            targets = dict()
             for key in self.shapeKeys:
-                targets[key/'_'/target] = self.distRasters[key]
+                targets.update({fpath.with_name(fpath.stem + '_' + key + fpath.suffix): self.distRasters[key]})
         else:
             raise ValueError("only currently supported save options are bands = 'all', 'predictions' OR 'distances'")
 
         for flKey in targets.keys():
             with rasterio.open(flKey, 'w', driver='GTiff',
-                               height=self.rasterTemplate.cellHeightY,
-                               width=self.rasterTemplate.cellWidthX,
+                               height=self.rasterTemplate.nRowsY,
+                               width=self.rasterTemplate.nColsX,
                                count=1, dtype=self.rasterTemplate.dtypes,
                                crs=self.rasterTemplate.crs, transform=self.rasterTemplate.transform) as sRaster:
                 sRaster.write(targets[flKey], 1)
@@ -197,21 +200,29 @@ class PredictorByDistance():
         '''
         load a prediction raster that has been previously saved.
         '''
-        
-        if isinstance(path, str): pathlib.Path(path)
-        possiblePaths = [path, path.with_suffix('tiff'), path.with_name('pred_'/path.name), 
-                         path.with_name('pred_'/path.name).with_suffix('tiff')]
-        idx = 0
-        while idx < len(possiblePaths):
-            if possiblePaths[idx].exists(): 
-                target = possiblePaths[idx]
-                break
-            idx += 1
-        else:
-            raise ValueError(f"raster path:{path} not found")
-
+        if isinstance(path, str): path = pathlib.Path(path)
+        mPath = self.modelDir.joinpath(path)
         rasterType = rasterType.lower()
         if rasterType =='prediction':
+            possiblePaths = [mPath,
+                             mPath.with_suffix('.tiff'), 
+                             mPath.with_name(mPath.stem + '_pred' + mPath.suffix), 
+                             mPath.with_name(mPath.stem + '_pred' + mPath.suffix).with_suffix('.tiff'),
+                             path, 
+                             path.with_suffix('.tiff'), 
+                             path.with_name(path.stem + '_pred' + path.suffix), 
+                             path.with_name(path.stem + '_pred' + path.suffix).with_suffix('.tiff')]
+            idx = 0
+            while idx < len(possiblePaths):
+                if possiblePaths[idx].exists(): 
+                    target = possiblePaths[idx]
+                    break
+                idx += 1
+            else:
+                raise ValueError(f"raster path:{path} not found")
+
             self.predictRaster = rasterio.open(target).read(1)
         else:
-            raise ValueError("haven't implemented reading in the distance raster(s) yet")
+            for key in self.shapeKeys:
+                shpPath = mPath.with_name(mPath.stem + '_' + key).with_suffix('.tiff')
+                self.distRasters.update({key: rasterio.open(shpPath).read(1)})
