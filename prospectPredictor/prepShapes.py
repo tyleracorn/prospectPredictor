@@ -2,6 +2,7 @@
 class for prepping shapefiles and selecting the shapes we will use in the predictor class
 '''
 import math, pathlib, tempfile, os
+import pandas as pd
 
 def printLists(listToPrint, maxLineLength=120, sep='||'):
     '''
@@ -129,6 +130,101 @@ class PrepShapes():
 
         printLists(self.data.columns.tolist(), maxLineLength=maxLineLength)
 
+    def plotData(self, column:str, categorical:bool=True, legend:bool=True, ax=None,
+                 cmap:str='gist_earth', figsize:tuple=(10,10), kwds=None):
+        '''
+        basic plot for shapes grouped by values in column. This is a wrapper 
+        for geopandas.GeoDataFrame.plot() with common defaults.
+        you can access the full plotting function at self.data.plot()
+
+        Parameters
+        ----------
+        column: str
+            the name of the dataframe column to be plotted. values are used to color the plot
+        categorical: bool (default True)
+            is the data categorical data? or numerical (False)
+        legend: bool (default True)
+            whether to plot a legend
+        ax: matplotlib.pyplot Artist (default None)
+            axes on which to draw the plot
+        cmap: str (default gist_earth)
+            the name of any colormap recognized by matplotlib
+        figsize: tuple of integers (default (10, 10))
+            Size of the resulting matplotlib.figure.Figure (width, height). If axes is
+            passed, then figsize is ignored.
+        kwds: dict (default None)
+            keyword dictionary to pass onto geopandas.GeoDataFrame.plot()
+
+        Returns
+        -------
+        ax: matplotlip axes instance
+        '''
+        
+        if kwds: 
+            ax = self.data.plot(column=column, categorical=categorical, 
+                                legend=legend, ax=ax, cmap=cmap, figsize=figsize, **kwds)
+        else:
+            ax = self.data.plot(column=column, categorical=categorical, 
+                                legend=legend, ax=ax, cmap=cmap, figsize=figsize)
+        return ax
+        
+    def plotShapes(self, ax=None, color=['red', 'orange'], legend=True, legLoc='upper left',
+                   figsize:tuple=(10,10), projBounds=False, kwds=None):
+        '''
+        basic plot wrapper that loops through the self.shapeNames and plots the shape outlines relying heavily on defaults.
+        uses the geopandas.GeoDataFrame.plot() tied to self.data
+        
+        Parameters
+        ----------
+        ax: matplotlib.pyplot Artist (default None)
+            axes on which to draw the plot
+        color: list (default ['red', 'orange'])
+            list of colors. needs to be same length as self.shapeNames
+        legend: bool (default True)
+            whether to plot a legend
+        legLoc:str (default 'upper left')
+            the location to plot the legend for the shapes
+        figsize: tuple of integers (default (10, 10))
+            Size of the resulting matplotlib.figure.Figure (width, height). If axes is
+            passed, then figsize is ignored.
+        projBounds: bool (default False)
+            if True will use self.projBounds to reset the plot axis limits
+        kwds: dict (default None)
+            keyword dictionary to pass onto geopandas.GeoDataFrame.plot()
+
+        Returns
+        -------
+        ax: matplotlip axes instance
+
+        '''
+        if legend: 
+            from matplotlib.lines import Line2D
+            from matplotlib.legend import Legend
+            handles = []
+            labels = []
+        for c, shp in zip(color, self.shapeNames):
+            if kwds:
+                ax = self.dictOfProjShapes[shp]['data'].plot(categorical=True,
+                                                             ax=ax, facecolor='none', 
+                                                             edgecolor=c, **kwds)
+            else:
+                ax = self.dictOfProjShapes[shp]['data'].plot(categorical=True,
+                                                             ax=ax, facecolor='none', 
+                                                             edgecolor=c)                                        
+            if legend: 
+                handles.append(Line2D([], [], color=c, lw=0, marker='o', markerfacecolor='none'))
+                labels.append(shp)
+                
+        if legend: 
+            leg = Legend(ax, handles, labels, loc=legLoc, frameon=True)
+            ax.add_artist(leg)
+
+        if projBounds:
+            ax.set_xlim(self.projBounds['minx'][0], self.projBounds['maxx'][0])
+            ax.set_ylim(self.projBounds['miny'][0], self.projBounds['maxy'][0])
+            
+        return ax
+
     def dissolveData(self, forceDissolve:bool=False):
         '''
         dissolve the many polygons within each shape into a single multipolygon
@@ -184,3 +280,4 @@ class PrepShapes():
         minBounds = {'minx':max(minXList), 'miny':max(minYList), 
              'maxx':min(maxXList), 'maxy':min(maxYList)}
         self.__dict__.update({'projBounds': pd.DataFrame(minBounds)})
+
