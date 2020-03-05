@@ -221,34 +221,38 @@ class RasterTemplate():
     '''
     initialize a raster template that will be used by the predictor class for creating the prediction and distance rasters
     '''
-    def __init__(projBounds, cellWidthX, cellHeightY, crs, rasterDTypes='float32', transform='default', driver='GTiff'):
+    def __init__(self, projBounds, cellWidthX, cellHeightY, crs, rasterDTypes='float32', transform='default', driver='GTiff'):
         self.projBounds:DataFrame = projBounds
         self.cellWidthX:np.number = cellWidthX
         self.cellHeightY:np.number = cellHeightY
-        self.crs = rasterio.crs[crs]
+        self.crs = crs
         self.dtypes = rasterDTypes
         if isinstance(transform, str):
             if transform == 'default':
-                self.transform = rasterio.transform.from_origin(projBounds.minx, projBounds.maxy, cellWidthX, cellHeightY)
+                minX = int(self.projBounds['minx'][0]) // self.cellWidthX * self.cellWidthX
+                maxY = int(self.projBounds['maxy'][0]) // self.cellHeightY * self.cellHeightY
+                self.transform = rasterio.transform.from_origin(minX, maxY, cellWidthX, cellHeightY)
             else:
-                raise ValueError "currently only default transforms are supported. you can pass your own transform in a rasterio.transform format"
+                raise ValueError("currently only default transforms are supported. you can pass your own transform in a rasterio.transform format")
+        else:
+            self.transform = transform
         self.data = None
-        self._createEmptyRaster()
+        #self._createEmptyRaster()
         self.driver = driver
 
     def initializeEmptyRaster(self):
         '''
         create an empty raster and set to self.data based on paramaters passed)
         '''
-        minX = int(self.projBounds.bounds['minx'][0]) // self.cellWidthX * self.cellWidthX
-        maxX = int(self.projBounds.bounds['maxx'][0]) // self.cellWidthX * self.cellWidthX
-        minY = int(self.projBounds.bounds['miny'][0]) // self.cellHeightY * self.cellHeightY
-        maxY = int(self.projBounds.bounds['maxy'][0]) // self.cellHeightY * self.cellHeightY
+        minX = int(self.projBounds['minx'][0]) // self.cellWidthX * self.cellWidthX
+        maxX = int(self.projBounds['maxx'][0]) // self.cellWidthX * self.cellWidthX
+        minY = int(self.projBounds['miny'][0]) // self.cellHeightY * self.cellHeightY
+        maxY = int(self.projBounds['maxy'][0]) // self.cellHeightY * self.cellHeightY
 
         xDim = maxX - minX
         yDim = maxY - minY
-        nColsX = int(xDim / xRes)
-        nRowsY = int(yDim / yRes)
+        nColsX = int(xDim / self.cellWidthX)
+        nRowsY = int(yDim / self.cellHeightY)
 
         return np.full((nRowsY, nColsX), np.nan, dtype=self.dtypes)
 
@@ -259,14 +263,16 @@ class RasterTemplate():
     # rasterProb:np.array
 
 
-class predictorByDistance():
+class PredictorByDistance():
     def __init__(self, preppedShape, rasterTemplate, architect='varriogram', archType='exponential', archRange=10000, modelDir='models'):
-        self.shapes = preppedShape.dictProjShapes
+        self.shapes = preppedShape.dictOfProjShapes
         self.shapeKeys = self.shapes.keys()
         self.rasterTemplate = rasterTemplate
+        self.rasterTransform = rasterTemplate.transform
         self.predictRaster = rasterTemplate.initializeEmptyRaster()
-        for key in preppedShape.dictProjShapes.keys():
-            self.distRasters[key: rasterTemplate.initializeEmptyRaster()]
+        self.distRasters = dict()
+        for key in preppedShape.dictOfProjShapes.keys():
+            self.distRasters.update({key: rasterTemplate.initializeEmptyRaster()})
         self.architect = architect
         self.archType = archType
         self.archRange = archRange
@@ -275,7 +281,7 @@ class predictorByDistance():
     def _testWriteablePath(self):
         '''test if you can write to path. makedir if needed'''
         if isinstance(self.modelDir, str):
-            self.__dict__.update['modelDir'] = pathlib.Path(self.modelDir)
+            self.__dict__.update({'modelDir': pathlib.Path(self.modelDir)})
         try:
             path.mkdir(parents=True, exist_ok=True)
             tmpF = get_tmp_file(path)
@@ -283,19 +289,29 @@ class predictorByDistance():
             raise Exception(f"{e}\nCan't write to '{path}', set `modelDir` attribute in predictor to a full libpath path that is writable") from None
         os.remove(tmp_file)
 
+    def xy(self, row:int, col:int, offset='center'):
+        '''Returns the coordinates `(x,y)` of a cell at row and col. the pixels center is returned by default
+        This functino is using the transform.xy() function from rasterio
+        '''
+        return rasterio.transform.xy(self.rasterTransform, rows=row, cols=col, offset=offset)
+    
     def updateArchitect(self, architect=False, archType=False, archRange=False):
 
         if architect:
-            self.__dict__.update['architect'] = architect
+            self.__dict__.update({'architect': architect})
         if archType:
-            self.__dict__.update['archType'] = archType
+            self.__dict__.update({'archType': archType})
         if archRange:
-            self.__dict__.update['archRange'] = archRange
+            self.__dict__.update({'archRange': archRange})
 
-    def distanceMatrix(self, maxRange=None, maxRangeMultiple=1.2):
+    def distanceMatrix(self, maxRange=None, maxRangeMultiple=None):
         '''
-        docs
-
+        calculate the distance from center of each cell to the nearest boundary
+        of the shape files. self.updateShapes() to change which shapes we are
+        calculating distances to.
+        
+        Note: the varriogram calculator currently predicts 100 percent if all distances
+        equal NaN so the maxRange feature here isn't implemented yet
         example
 
         '''
@@ -305,11 +321,12 @@ class predictorByDistance():
             maxRange = self.archRange * maxRangeMultiple
         else:
             maxRange = None
-
-        for (idxR, idxC), sDist in np.ndenumerate(self.distRasters[self.shapeKeys[0]]):
-            tmpPoint = shapely.geometry.Point(self.rasterTemplate.transform.xy(idxR, idxC))
+        tmpKey = list(self.shapeKeys)[0]
+        print(maxRange, tmpKey)
+        for (idxR, idxC), _ in np.ndenumerate(self.distRasters[tmpKey]):
+            tmpPoint = shapely.geometry.Point(self.xy(idxR, idxC))
             for key in self.shapeKeys:
-                dist = self.shapes[key]['data'].distance(tmpPoint)
+                dist = self.shapes[key]['dataDissolved'].distance(tmpPoint)[0]
                 if maxRange:
                     if dist <= maxRange:
                         self.distRasters[key][idxR][idxC] = dist
@@ -322,6 +339,9 @@ class predictorByDistance():
         Then calculated a weighted prediction using the pseudo varriogram. 
         This weights the predictions so that they drop to 0 when the range from either 
         of the shapes reaches the varriogram range.
+        
+        distKwargs:dict() = keyword arguments to pass to self.distanceMatrix
+        varrioKwargs:dict() = keyword arguments to pass to self.varriogramExp
         '''
         if updateDistance:
             if distKwargs:
@@ -334,7 +354,10 @@ class predictorByDistance():
             distances = list()
             for key in self.shapeKeys:
                 distances.append(self.distRasters[key][idxR][idxC])
-            prediction = varriogramExp(distances, vRange)
+            if varrioKwargs:
+                prediction = self.varriogramExp(distances, **varrioKwargs)
+            else:
+                prediction = self.varriogramExp(distances)
             self.predictRaster[idxR][idxC] = prediction
 
     def varriogramExp(self, distList, varrioRange='default', distFactor=1.5, smoothFactor=1):
@@ -364,33 +387,41 @@ class predictorByDistance():
             if varrioRange.lower() == 'default':
                 vRange = self.archRange
             else:
-                raise ValueError "either pass numeric range or `default`"
+                raise ValueError("either pass numeric range or `default`")
         else:
             vRange = varrioRange
         # calculate the weighted prediction
         power = list()
+        #print(distList)
+        #print(vRange)
+        #print(distFactor)
         for d in distList:
-            power.append(calcPower(dist, vRange, distFact))
-        power = sum(power)
+            #print(d, vRange, distFactor)
+            power.append(self.calcPower(d, vRange, distFactor))
+        power = np.nansum(power)
 
         return smoothFactor * math.exp(power)
 
-    def calcPower(dist, archRange, distFact):
+    def calcPower(self, dist, archRange, distFactor):
         '''
         return the distance factor used in varriogram exponential calculation
         '''
-        return -((distFact * dist)**2/archRange**2)
+        return -((distFactor * dist)**2/archRange**2)
 
-    def saveRaster(self, file:[Path,str]=None, bands:str='prediction'):
+    def saveRaster(self, file:[pathlib.Path,str]=None, bands:str='prediction'):
         '''
         save the prediction and/or distance rasters to file using the GTiff driver
         file:[Path, str] = path to save file to. Will use model directory set in class
         bands:str = options include 'all', 'prediction', or 'distances'
 
         '''
-        if self.modelDir:
-            self._testWriteablePath()
-        if isinstance(file, [pathlib.Path, str]) target = self.modelDir/file else file
+        if self.modelDir: self._testWriteablePath()
+            
+        if isinstance(file, [pathlib.Path, str]):
+            target = self.modelDir/file 
+        else:
+            file
+            
         bands = bands.lower()
         if bands == 'all':
             targets = {'pred_'/target: self.predictRaster}
@@ -403,7 +434,7 @@ class predictorByDistance():
             for key in self.shapeKeys:
                 targets[key/'_'/target] = self.distRaster[key]
         else:
-            raise ValueError "only currently supported save options are bands = 'all', 'predictions' OR 'distances'"
+            raise ValueError("only currently supported save options are bands = 'all', 'predictions' OR 'distances'")
 
         for flKey in targets.keys:
             with rasterio.open(flKey, 'w', driver='GTiff',
@@ -414,7 +445,7 @@ class predictorByDistance():
                 sRaster.write(targets[flKey], 1)
 
 
-    def loadRaster(self, path:[Path, str], rasterType:str='prediction'):
+    def loadRaster(self, path:[pathlib.Path, str], rasterType:str='prediction'):
         '''
         load a prediction raster that has been previously saved.
         '''
@@ -429,13 +460,12 @@ class predictorByDistance():
                 break
             i += 1
         else:
-            raise ValueError f"raster path:{path} not found"
+            raise ValueError(f"raster path:{path} not found")
 
         rasterType = rasterType.lower()
         if rasterType =='prediction':
             self.predictRaster = rasterio.open(target).read(1)
         else:
-            raise ValueError "haven't implemented reading in the distance raster(s) yet"
-        
+            raise ValueError("haven't implemented reading in the distance raster(s) yet")
 
 
