@@ -169,7 +169,8 @@ class PrepShapes():
         return ax
         
     def plotShapes(self, ax=None, color=['red', 'orange'], legend=True, legLoc='upper left',
-                   figsize:tuple=(10,10), projBounds=False, kwds=None):
+                   figsize:tuple=(10,10), polyfill=False, alpha=None, projBounds=False,
+                   plotBuffer=False, kwds=None):
         '''
         basic plot wrapper that loops through the self.shapeNames and plots the shape outlines relying heavily on defaults.
         uses the geopandas.GeoDataFrame.plot() tied to self.data
@@ -187,6 +188,10 @@ class PrepShapes():
         figsize: tuple of integers (default (10, 10))
             Size of the resulting matplotlib.figure.Figure (width, height). If axes is
             passed, then figsize is ignored.
+        polyfill: bool (default False)
+            whether to fill in the polygon using color
+        alpha: float (default None)
+            transparency of the polygon fills. should be between 0 (transparent) and 1 (opaque)
         projBounds: bool (default False)
             if True will use self.projBounds to reset the plot axis limits
         kwds: dict (default None)
@@ -203,14 +208,19 @@ class PrepShapes():
             handles = []
             labels = []
         for c, shp in zip(color, self.shapeNames):
+            cpoly = c if polyfill else None
             if kwds:
-                ax = self.dictOfProjShapes[shp]['data'].plot(categorical=True,
-                                                             ax=ax, facecolor='none', 
-                                                             edgecolor=c, **kwds)
+                ax = self.dictOfProjShapes[shp]['data'].plot(categorical=True, figsize=figsize,
+                                                             ax=ax, facecolor=cpoly, 
+                                                             edgecolor=c, alpha=sAlpha, **kwds)
+                if plotBuffer: ax = self.dictOfProjShapes[shp]['buffer'].plot(ax=ax, facecolor=cpoly, 
+                                                                              edgecolor=c, alpha=bAlpha, **kwds)
             else:
-                ax = self.dictOfProjShapes[shp]['data'].plot(categorical=True,
-                                                             ax=ax, facecolor='none', 
-                                                             edgecolor=c)                                        
+                ax = self.dictOfProjShapes[shp]['data'].plot(categorical=True, figsize=figsize,
+                                                             ax=ax, facecolor=cpoly, 
+                                                             edgecolor=c, alpha=sAlpha) 
+                if plotBuffer: ax = self.dictOfProjShapes[shp]['buffer'].plot(ax=ax, facecolor=cpoly, 
+                                                                              edgecolor=c, alpha=bAlpha)
             if legend: 
                 handles.append(Line2D([], [], color=c, lw=0, marker='o', markerfacecolor='none'))
                 labels.append(shp)
