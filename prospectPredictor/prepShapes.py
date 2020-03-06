@@ -21,7 +21,8 @@ def printLists(listToPrint:list, maxLineLength:int=100, sep:str='||'):
     maxLineLength:int (default 100)
     sep:str (default '||')
 
-    example:
+    Example:
+    --------
     >>> tmpList = ['ab', 'cd', 'ef']
     ... || ab || cd || ef ||
     '''
@@ -43,8 +44,9 @@ def printDictOfLists(dict:dict, keys:list, maxLineLength:int=100,
     '''
     small function for printing list in a way that is a bit easier to read
 
-    Paramaters:
+    Paramaters
     -----------
+
     dict: dict
         dictionary where the values are a bunch of lists to pring
     keys:list 
@@ -102,8 +104,10 @@ class PrepShapes():
         Class for prepping shapefiles. Used to select which polygons we want to
         use in our predictor and find project boundaries based on those polygons
 
+
         Parameters
         ----------
+
         data: 
             shapefiles loaded into a geopandas.GeoDataFrame or the filename/path to a file to load into self.data with geopandas.read_file()
         shapeNameColDict:dict
@@ -111,11 +115,12 @@ class PrepShapes():
         boundaryBuffer:int
             a buffer used to find the project boundary. i.e. 10% bigger than your predictor range
         
-        Example:
+
+        Example
         --------
-        InputFile = 'data/BedrockP.shp'
-        bedrockData = gpd.read_file(InputFile)
-        pShapes = PrepShapes(bedrockData)
+
+        >>> InputFile = 'data/BedrockP.shp'
+        >>> pShapes = PrepShapes(bedrockData)
         '''
         if isinstance(dataOrFileName, (pathlib.Path, str)):
             import geopandas as gpd

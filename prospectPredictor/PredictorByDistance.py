@@ -202,10 +202,12 @@ class PredictorByDistance():
         '''
         return the distance factor used in varriogram exponential calculation
 
-        Example:
-        distFactor=1.5
-        .. math::
-            power = -( (1.5 * dist**2) / archRange**2 )
+        Example
+        -------
+
+            distFactor=1.5
+            .. math::
+                power = -( (1.5 * dist**2) / archRange**2 )
         '''
         return -((distFactor * dist**2)/archRange**2)
 
