@@ -322,6 +322,31 @@ class PrepShapes():
         '''
         if bufferSize:
             self.__dict__.update({'boundaryBuffer': bufferSize})
+    
+    def setShapes(self, shapeNameColDict:dict, reset:bool=True):
+        '''
+        updates self.shapeNameColDict as well as self.projShapes
+        if you want to just update (keep old keys not passed) set reset=False
+        
+        Parameters
+        ----------
+        
+        shapeNameColDict:dict
+            dictionary of category name (i.e. 'ultramafic') and the column the descriptor is found in (i.e. 'rock_class')
+        reset:bool (default True)
+            will do a reset of the dictionaries (self.shapeNameColDict and self.projShapes) i.e clearing them before updating
+        '''
+        if reset:
+            self.shapeNameColDict.clear()
+            self.projShapes.clear()
+        
+        self.shapeNameColDict.update(shapeNameColDict)
+        if len(self.shapeNameColDict) > 0:
+            for key in self.shapeNameColDict.keys():
+                col = self.shapeNameColDict[key]
+                self.projShapes.update({key:{'cat': col,
+                                             'data': self.data.loc[self.data[col] == str(key)]}
+                                        })
 
     def setProjectBoundary(self, buffer=True):
         '''
