@@ -161,6 +161,74 @@ class PredictorByDistance():
         '''
         return -((distFactor * dist)**2/archRange**2)
 
+    def _plotSetup(self, ax, figsize, transform):
+        '''
+        utility function for setting up some common plotting paramaters
+        '''
+        if isinstance(transform, str):
+            if transform.lower() == 'default': 
+                transform = self.rasterTransform
+            else:
+                raise ValueError(f"transform:{transform} - must pass either `default` or a valid rasterio transform")
+
+        if not ax:
+            import matplotlib.pyplot as plt
+            fig, ax = plt.subplots(figsize=figsize)
+        else:
+            fig = ax.figure
+        
+        return ax, fig, transform
+
+    def plotPrediction(self, ax=None, figsize=(10,10), cmap='viridis',
+                       transform='default', cbar=True, cbarAnchor=None, cbarOrient='vertical',
+                       return_cbar=False):
+        '''
+        simple plotting wrapper that uses rasterio plotting function to plot the prediction raster
+        '''
+        import rasterio.plot as rioplot
+        ax, fig, transform = self._plotSetup(ax, figsize, transform)
+        
+        ax = rioplot.show(self.predictRaster, ax=ax, cmap=cmap, transform=transform)
+        ax.set_title(f'Prediction based on distances to shapes. Varriogram Range:{self.archRange} ({self.rasterTemplate.crs.linear_units})')
+        if cbar:
+            import matplotlib as mpl
+            cmap = mpl.cm.get_cmap(cmap)
+            norm = mpl.colors.Normalize(vmin=0, vmax=1)
+            cbAnchor = [0.85, 0.14, 0.02, 0.7] if not cbarAnchor else cbarAnchor 
+            cax = fig.add_axes(cbAnchor)
+            cb =  mpl.colorbar.ColorbarBase(ax=cax, cmap=cmap, norm=norm, orientation=cbarOrient)
+            cax.set_ylabel(f'Prediction 0 (least likely) to 1 (most likely)')
+            
+            if return_cbar: 
+                return ax, cax
+
+        return ax
+
+    def plotDistance(self, rasterKey, ax=None, figsize=(10,10), cmap='viridis',
+                     transform='default', cbar=True, cbarAnchor=None, cbarOrient='vertical',
+                     return_cbar=False):
+        '''
+        simple plotting wrapper that uses rasterio plotting function to plot the prediction raster
+        '''
+        import rasterio.plot as rioplot
+        ax, fig, transform = self._plotSetup(ax, figsize, transform)
+
+        ax = rioplot.show(self.distRasters[rasterKey], ax=ax, cmap=cmap, transform=transform)
+        ax.set_title(f'Distances to {rasterKey}')
+        if cbar:
+            import matplotlib as mpl
+            cmap = mpl.cm.get_cmap(cmap)
+            norm = mpl.colors.Normalize(vmin=0, vmax=int(self.distRasters[rasterKey].max()))
+            cbAnchor = [0.85, 0.14, 0.02, 0.7] if not cbarAnchor else cbarAnchor 
+            cax = fig.add_axes(cbAnchor)
+            cb =  mpl.colorbar.ColorbarBase(ax=cax, cmap=cmap, norm=norm, orientation=cbarOrient)
+            cax.set_ylabel(f'Distance ({self.rasterTemplate.crs.linear_units})')
+            
+            if return_cbar: 
+                return ax, cax
+
+        return ax
+
     def saveRaster(self, file:[pathlib.Path,str]=None, bands:str='prediction'):
         '''
         save the prediction and/or distance rasters to file using the GTiff driver
