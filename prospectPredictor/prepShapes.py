@@ -4,6 +4,12 @@ class for prepping shapefiles and selecting the shapes we will use in the predic
 import math, pathlib, tempfile, os
 import pandas as pd
 
+import typing
+#for type annotations
+from numbers import Number
+from typing import Any, AnyStr, Callable, Collection, Dict, Hashable, Iterator, List, Mapping, NewType, Optional
+from typing import Sequence, Tuple, TypeVar, Union
+
 def printLists(listToPrint:list, maxLineLength:int=100, sep:str='||'):
     '''
     small function for printing list in a way that is a bit easier to read
