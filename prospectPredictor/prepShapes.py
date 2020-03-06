@@ -169,7 +169,7 @@ class PrepShapes():
         return ax
         
     def plotShapes(self, ax=None, color=['red', 'orange'], legend=True, legLoc='upper left',
-                   figsize:tuple=(10,10), polyfill=False, alpha=None, projBounds=False,
+                   figsize:tuple=(10,10), polyfill=False, sAlpha=None, bAlpha=None, useProjBounds=False,
                    plotBuffer=False, kwds=None):
         '''
         basic plot wrapper that loops through the self.shapeNames and plots the shape outlines relying heavily on defaults.
@@ -190,9 +190,11 @@ class PrepShapes():
             passed, then figsize is ignored.
         polyfill: bool (default False)
             whether to fill in the polygon using color
-        alpha: float (default None)
-            transparency of the polygon fills. should be between 0 (transparent) and 1 (opaque)
-        projBounds: bool (default False)
+        sAlpha: float (default None)
+            transparency of the shapeNames polygon fills. should be between 0 (transparent) and 1 (opaque)
+        bAlpha: float (default None)
+            transparency of the buffer polygon fills. should be between 0 (transparent) and 1 (opaque)
+        useProjBounds: bool (default False)
             if True will use self.projBounds to reset the plot axis limits
         kwds: dict (default None)
             keyword dictionary to pass onto geopandas.GeoDataFrame.plot()
@@ -229,12 +231,12 @@ class PrepShapes():
             leg = Legend(ax, handles, labels, loc=legLoc, frameon=True)
             ax.add_artist(leg)
 
-        if projBounds:
+        if useProjBounds:
             ax.set_xlim(self.projBounds['minx'][0], self.projBounds['maxx'][0])
             ax.set_ylim(self.projBounds['miny'][0], self.projBounds['maxy'][0])
             
         return ax
-
+    
     def dissolveData(self, forceDissolve:bool=False):
         '''
         dissolve the many polygons within each shape into a single multipolygon
