@@ -20,7 +20,10 @@ class RasterTemplate():
         self.yDim = self.maxY - self.minY
         self.nColsX = int(self.xDim / self.cellWidthX)
         self.nRowsY = int(self.yDim / self.cellHeightY)
-        self.crs = crs
+        if isinstance(crs, str):
+            self.crs = rasterio.crs.CRS.from_string(crs)
+        else:
+            self.crs = crs
         self.dtypes = rasterDTypes
         if isinstance(transform, str):
             if transform == 'default':
