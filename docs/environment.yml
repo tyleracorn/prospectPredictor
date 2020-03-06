@@ -1,4 +1,4 @@
-name: prospectpredictor
+# name: prospectpredictor
 channels:
 - conda-forge
 dependencies:
