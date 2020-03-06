@@ -41,7 +41,8 @@ def printDictOfLists(dict, keys, maxLineLength=120, varSep='||', keySep='\n-----
         print('\n')
 
 
-def printUnique(geodataframe, include:list=None, exclude:list=['gid', 'upid', 'geometry'], excludeNumeric:bool=True):
+def printUnique(geodataframe, include:list=None, exclude:list=['gid', 'upid', 'geometry'],
+                excludeNumeric:bool=True):
     '''
     small function to print out unique values in all columns or some columns.
     assumes you are passing it a GeoPandas dataframe so it will exclude some columns.
@@ -76,6 +77,22 @@ def bIfAisNone(a:any, b:any)->any:
 
 class PrepShapes():
     def __init__(self, data, shapeCategories:list, shapeNames:list, boundaryBuffer:int=10000):
+        '''
+        Class for prepping shapefiles. Used to select which polygons we want to
+        use in our predictor and find project boundaries based on those polygons
+
+        data: shapefiles loaded into a geopandas.GeoDataFrame
+        shapeCategories:list = the column names (categories) which have the rocktype/unit
+            descriptor that we will use for selecting project polygons
+        shapeNames:list = the actual identifier used for the rocktype/unit i.e. "sandstone"
+        boundaryBuffer:int = a buffer used to find the project boundary. i.e. 10% bigger than
+            your predictor range
+        
+        Example:
+
+        InputFile = 'data/BedrockP.shp'
+        bedrockData = gpd.read_file(InputFile)
+        '''
         self.data=data
         if len(shapeCategories) > 1:
             if isinstance(shapeCategories, str):
@@ -130,35 +147,11 @@ class PrepShapes():
 
         printLists(self.data.columns.tolist(), maxLineLength=maxLineLength)
 
-    def plotData(self, column:str, categorical:bool=True, legend:bool=True, ax=None,
-                 cmap:str='gist_earth', figsize:tuple=(10,10), kwds=None):
-        '''
-        basic plot for shapes grouped by values in column. This is a wrapper 
+    def plotData(self, column, categorical=True, legend=True, ax=None, cmap='gist_earth',
+                 figsize=(10,10), kwds=None):
+        '''basic plot for shapes grouped by values in column. This is a wrapper 
         for geopandas.GeoDataFrame.plot() with common defaults.
-        you can access the full plotting function at self.data.plot()
-
-        Parameters
-        ----------
-        column: str
-            the name of the dataframe column to be plotted. values are used to color the plot
-        categorical: bool (default True)
-            is the data categorical data? or numerical (False)
-        legend: bool (default True)
-            whether to plot a legend
-        ax: matplotlib.pyplot Artist (default None)
-            axes on which to draw the plot
-        cmap: str (default gist_earth)
-            the name of any colormap recognized by matplotlib
-        figsize: tuple of integers (default (10, 10))
-            Size of the resulting matplotlib.figure.Figure (width, height). If axes is
-            passed, then figsize is ignored.
-        kwds: dict (default None)
-            keyword dictionary to pass onto geopandas.GeoDataFrame.plot()
-
-        Returns
-        -------
-        ax: matplotlip axes instance
-        '''
+        you can access the full plotting function at self.data.plot()'''
         
         if kwds: 
             ax = self.data.plot(column=column, categorical=categorical, 
