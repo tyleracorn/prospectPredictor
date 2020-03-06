@@ -15,6 +15,11 @@ def get_tmp_file(dir:Union[pathlib.Path, str]=None):
         `os.remove` when done with it.'''
     with tempfile.NamedTemporaryFile(delete=False, dir=dir) as f: return f.name
 
+def _test_cmap(cmap):
+    if isinstance(cmap, str):
+        if cmap.lower() == 'jet':
+            raise ValueError("ahh seriously? There are so many better colormaps then Jet. Go back and try again")
+
 
 class PredictorByDistance():
     def __init__(self, preppedShape, rasterTemplate, architect:str='varriogram', archType:str='exponential',
@@ -146,7 +151,7 @@ class PredictorByDistance():
             self.predictRaster[idxR][idxC] = prediction
 
     def varriogramExp(self, distList:list, varrioRange:Optional[float]='default',
-                      distFactor:Optional[float]=1.5, smoothFactor:Optional[float]=1):
+                      distFactor:Optional[float]=1.5, smoothFactor:Optional[float]=1)->'cellPrediction':
         '''
         use a pseudo varriogram for calculating a weighted prediction. this gives you a
         smooth prediction from 1 (most likely) to 0 (least likely) based on the distance to the 
@@ -172,10 +177,10 @@ class PredictorByDistance():
         prediction calculated from 2 distances and default values:
         distFactor=1.5, smoothFactor=1
 
-        predict = 1 * math.exp( -( (1.5 * dist1)**2 / varrioRange**2 ) -( (1.5 * dist2)**2 / varrioRange**2) )
+        predict = 1 * math.exp( -( (1.5 * dist1**2) / varrioRange**2 ) -( (1.5 * dist2**2) / varrioRange**2) )
 
         .. math::
-            predict = 1 * math.exp( -( (1.5 * dist1)^2 / varrioRange^2 ) - ( (1.5 * dist2)^2 / varrioRange^2 ) )
+            predict = 1 * math.exp( -( (1.5 * dist1^2) / varrioRange^2 ) - ( (1.5 * dist2^2) / varrioRange^2 ) )
         '''
         # determine if we are using the default varriogram/architect range or a new range
         if isinstance(varrioRange, str):
@@ -193,18 +198,18 @@ class PredictorByDistance():
 
         return smoothFactor * math.exp(power)
 
-    def calcPower(self, dist:float, archRange:float, distFactor:float):
+    def calcPower(self, dist:float, archRange:float, distFactor:float)->'power':
         '''
         return the distance factor used in varriogram exponential calculation
 
         Example:
         distFactor=1.5
-
-        power = -( (1.5 * dist1)**2 / archRange**2 )
+        .. math::
+            power = -( (1.5 * dist**2) / archRange**2 )
         '''
-        return -((distFactor * dist)**2/archRange**2)
+        return -((distFactor * dist**2)/archRange**2)
 
-    def _plotSetup(self, ax, figsize, transform):
+    def _plotSetup(self, ax, figsize, transform)->'ax, fig, tansform':
         '''
         utility function for setting up some common plotting paramaters
         '''
@@ -222,14 +227,38 @@ class PredictorByDistance():
         
         return ax, fig, transform
 
-    def plotPrediction(self, ax=None, figsize=(10,10), cmap='viridis',
-                       transform='default', cbar=True, cbarAnchor=None, cbarOrient='vertical',
-                       return_cbar=False):
+    def plotPrediction(self, ax=None, figsize:tuple=(10,10), cmap='viridis',
+                       transform='default', cbar:bool=True, cbarAnchor:Optional[list]=None,
+                       cbarOrient:str='vertical', return_cbar:bool=False)->'matplotlib ax':
         '''
         simple plotting wrapper that uses rasterio plotting function to plot the prediction raster
+
+        ax: matplotlib.pyplot Artist (default None)
+            axes on which to draw the plot 
+        figsize: tuple of integers (default (10, 10))
+            Size of the resulting matplotlib.figure.Figure (width, height). If axes is
+            passed, then figsize is ignored.
+        cmap
+            recognizable colormap (at least to matplotlib)
+        transform
+            rasterio tansform. converts raster index to coordinates
+        cbar:bool=True
+            do you want a color bar? probably yes?
+        cbarAnchor:list
+            if the default anchor point for the colorbar doesn't work you can pass it a list for fig.add_axes()
+            The dimensions [left, bottom, width, height] of the new axes. All quantities are in fractions of figure width and height.
+        cbarOrient:str (default 'vertical')
+            change the orientation of the colorbar. Note: you'll want to pass it your own cbarOrient if you do this
+        return_cbar:bool
+            if you want it to return the cbar so you can mess with it then put True!
+
+        Returns
+        -------
+        ax: matplotlib axes instance
         '''
         import rasterio.plot as rioplot
         ax, fig, transform = self._plotSetup(ax, figsize, transform)
+        _test_cmap(cmap)
         
         ax = rioplot.show(self.predictRaster, ax=ax, cmap=cmap, transform=transform)
         ax.set_title(f'Prediction based on distances to shapes. Varriogram Range:{self.archRange} ({self.rasterTemplate.crs.linear_units})')
@@ -247,14 +276,40 @@ class PredictorByDistance():
 
         return ax
 
-    def plotDistance(self, rasterKey, ax=None, figsize=(10,10), cmap='viridis',
-                     transform='default', cbar=True, cbarAnchor=None, cbarOrient='vertical',
-                     return_cbar=False):
+    def plotDistance(self, rasterKey:str, ax=None, figsize:tuple=(10,10), cmap:str='viridis',
+                     transform='default', cbar:bool=True, cbarAnchor:Optional[bool]=None,
+                     cbarOrient:str='vertical', return_cbar:bool=False)->'matplotlib ax':
         '''
-        simple plotting wrapper that uses rasterio plotting function to plot the prediction raster
+        simple plotting wrapper that uses rasterio plotting function to plot a distance raster
+
+        rasterKey:str
+            key name for the distance raster to plot
+        ax: matplotlib.pyplot Artist (default None)
+            axes on which to draw the plot 
+        figsize: tuple of integers (default (10, 10))
+            Size of the resulting matplotlib.figure.Figure (width, height). If axes is
+            passed, then figsize is ignored.
+        cmap
+            recognizable colormap (at least to matplotlib)
+        transform
+            rasterio tansform. converts raster index to coordinates
+        cbar:bool=True
+            do you want a color bar? probably yes?
+        cbarAnchor:list
+            if the default anchor point for the colorbar doesn't work you can pass it a list for fig.add_axes()
+            The dimensions [left, bottom, width, height] of the new axes. All quantities are in fractions of figure width and height.
+        cbarOrient:str (default 'vertical')
+            change the orientation of the colorbar. Note: you'll want to pass it your own cbarOrient if you do this
+        return_cbar:bool
+            if you want it to return the cbar so you can mess with it then put True!
+
+        Returns
+        -------
+        ax: matplotlib axes instance
         '''
         import rasterio.plot as rioplot
         ax, fig, transform = self._plotSetup(ax, figsize, transform)
+        _test_cmap(cmap)
 
         ax = rioplot.show(self.distRasters[rasterKey], ax=ax, cmap=cmap, transform=transform)
         ax.set_title(f'Distances to {rasterKey}')
@@ -272,16 +327,21 @@ class PredictorByDistance():
 
         return ax
 
-    def saveRaster(self, file:[pathlib.Path,str]=None, bands:str='prediction'):
+    def saveRaster(self, name:[pathlib.Path,str]=None, bands:str='prediction'):
         '''
-        save the prediction and/or distance rasters to file using the GTiff driver
-        file:[Path, str] = path to save file to. Will use model directory set in class
-        bands:str = options include 'all', 'prediction', or 'distances'
+        save the current prediction state to disk. You can pick between just saving the prediction and/or distance rasters to file using the GTiff driver
+
+        Parameters
+        ----------
+        name:[Path, str]
+            unique name for saving state to disk. Will use model directory set in class
+        bands:str (default 'prediction')
+            options include 'all', 'prediction', or 'distances'
 
         '''
         if self.modelDir: self._testWriteablePath()
             
-        fpath = self.modelDir.joinpath(file)
+        fpath = self.modelDir.joinpath(name)
         if not fpath.suffix: fpath = fpath.with_suffix('.tiff')
 
         bands = bands.lower()
@@ -299,6 +359,7 @@ class PredictorByDistance():
             raise ValueError("only currently supported save options are bands = 'all', 'predictions' OR 'distances'")
 
         for flKey in targets.keys():
+            # TODO: update to save out using different driver's
             with rasterio.open(flKey, 'w', driver='GTiff',
                                height=self.rasterTemplate.nRowsY,
                                width=self.rasterTemplate.nColsX,
