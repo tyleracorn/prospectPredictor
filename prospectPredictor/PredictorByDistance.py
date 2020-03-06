@@ -44,13 +44,13 @@ class PredictorByDistance():
         modelDir:Union[pathlib.Path, str] (default'models')
             path to save / load prediction and distance raster to / from
         '''
-        self.shapes = preppedShape.dictOfProjShapes
-        self.shapeKeys = self.shapes.keys()
+        self.shapes = preppedShape.projShapes
+        self.shapeKeys = list(self.shapes.keys())
         self.rasterTemplate = rasterTemplate
         self.rasterTransform = rasterTemplate.transform
         self.predictRaster = rasterTemplate.initializeEmptyRaster()
         self.distRasters = dict()
-        for key in preppedShape.dictOfProjShapes.keys():
+        for key in preppedShape.projShapes.keys():
             self.distRasters.update({key: rasterTemplate.initializeEmptyRaster()})
         self.architect = architect
         self.archType = archType
