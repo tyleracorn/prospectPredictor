@@ -106,7 +106,7 @@ class PredictorByDistance():
         else:
             maxRange = None
         tmpKey = list(self.shapeKeys)[0]
-        print(maxRange, tmpKey)
+
         for (idxR, idxC), _ in np.ndenumerate(self.distRasters[tmpKey]):
             tmpPoint = shapely.geometry.Point(self.xy(idxR, idxC))
             for key in self.shapeKeys:
