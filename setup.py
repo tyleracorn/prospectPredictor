@@ -14,7 +14,7 @@ setup(name='prospectpredictor',
         'Programming Language :: Python :: 3.8',
         'Topic :: Scientific/Engineering',
       ],
-      keywords='GIS prospectivity varriogram shapefiles raster'
+      keywords='GIS prospectivity varriogram shapefiles raster',
       url='https://github.com/tyleracorn/prospectPredictor',
       author='Tyler Acorn',
       author_email='tyler.acorn@gmail.com',
