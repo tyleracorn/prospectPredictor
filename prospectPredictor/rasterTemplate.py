@@ -1,17 +1,41 @@
 '''create a template for the rasters that the predictor class(es) will write to'''
 import rasterio
 import numpy as np
-
+import typing
+#for type annotations
+from numbers import Number
+from typing import Any, AnyStr, Callable, Collection, Dict, Hashable, Iterator, List, Mapping, NewType, Optional
+from typing import Sequence, Tuple, TypeVar, Union
 
 class RasterTemplate():
-    def __init__(self, projBounds, cellWidthX, cellHeightY, crs, 
-                 rasterDTypes='float32', transform='default', driver='GTiff'):
+    def __init__(self, projBounds, cellWidthX:Union[int, float], cellHeightY:Union[int, float], 
+                 crs, rasterDTypes:Union[str, np.dtype]='float32', transform='default',
+                 driver:str='GTiff'):
         '''
-        initialize a raster template that will be used by the predictor class for creating the prediction and distance rasters
+        initialize a raster template that will be used by the predictor class for 
+        creating the prediction and distance rasters
+
+        Parameters
+        ----------
+        projBounds:DataFrame
+            projBoundary from prepShapes.projBounds. pd.Dataframe with ['minx', 'miny', 'maxx', 'maxy'] columns
+        cellWidthX:Union[int, float]
+            how wide the cells will be (in crs units)
+        cellHeightY:Union[int, float]
+            how high the cells will be (in crs units)
+        crs:Union[str, crs]
+            the cordinate reference system that will be used in the transform
+        rasterDTypes:Union[str, np.dtype]
+            dataType for the raster (numpy.array())
+        transform:Union[str, Transform]='default'
+            the transform used to transform raster index to coordinates
+        driver:str='GTiff'
+            what rasterIO driver to use for saving and loading data. Only tested with 'GTiff'
+
         '''
-        self.projBounds:pd.DataFrame = projBounds
-        self.cellWidthX:np.number = cellWidthX
-        self.cellHeightY:np.number = cellHeightY
+        self.projBounds = projBounds
+        self.cellWidthX = cellWidthX
+        self.cellHeightY = cellHeightY
         self.minX = int(self.projBounds['minx'][0]) // self.cellWidthX * self.cellWidthX
         self.maxX = int(self.projBounds['maxx'][0]) // self.cellWidthX * self.cellWidthX
         self.minY = int(self.projBounds['miny'][0]) // self.cellHeightY * self.cellHeightY
@@ -39,7 +63,7 @@ class RasterTemplate():
 
     def initializeEmptyRaster(self):
         '''
-        create an empty raster and set to self.data based on paramaters passed)
+        returns an empty (with np.nan) raster based on this raster template
         '''
 
         return np.full((self.nRowsY, self.nColsX), np.nan, dtype=self.dtypes)
