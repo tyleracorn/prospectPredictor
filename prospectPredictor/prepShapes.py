@@ -210,7 +210,7 @@ class PrepShapes():
             handles = []
             labels = []
         for c, shp in zip(color, self.shapeNames):
-            cpoly = c if polyfill else None
+            cpoly = c if polyfill else 'none'
             if kwds:
                 ax = self.dictOfProjShapes[shp]['data'].plot(categorical=True, figsize=figsize,
                                                              ax=ax, facecolor=cpoly, 
