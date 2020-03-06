@@ -91,7 +91,7 @@ def bIfAisNone(a:any, b:any)->any:
     return b if a is None else a
 
 class PrepShapes():
-    def __init__(self, data, shapeCategories:list, shapeNames:list, boundaryBuffer:int=12000):
+    def __init__(self, dataOrFileName, shapeNameColDict:Optional[dict]=None, boundaryBuffer:int=12000):
         '''
         Class for prepping shapefiles. Used to select which polygons we want to
         use in our predictor and find project boundaries based on those polygons
@@ -99,12 +99,9 @@ class PrepShapes():
         Parameters
         ----------
         data: 
-            shapefiles loaded into a geopandas.GeoDataFrame
-        shapeCategories:list
-            the column names (categories) which have the rocktype/unit
-            descriptor that we will use for selecting project polygons
-        shapeNames:list
-            the actual identifier used for the rocktype/unit i.e. "sandstone"
+            shapefiles loaded into a geopandas.GeoDataFrame or the filename/path to a file to load into self.data with geopandas.read_file()
+        shapeNameColDict:dict
+            a dictionary tying the description of a shape to it's column. example {'ultramafic': 'rock_class'}. This is used to group polygons into categories
         boundaryBuffer:int
             a buffer used to find the project boundary. i.e. 10% bigger than your predictor range
         
@@ -114,33 +111,27 @@ class PrepShapes():
         bedrockData = gpd.read_file(InputFile)
         pShapes = PrepShapes(bedrockData)
         '''
-        self.data=data
-        if len(shapeCategories) > 1:
-            if isinstance(shapeCategories, str):
-                shapeCategories=list(shapeCategories)
-            else:
-                if len(shapeCategories) != len(shapeNames):
-                    raise ValueError("shapeCategories must by a single cat or same size as shapeNames")
-        self.shapeCategories:list=shapeCategories
-        self.shapeNames:list=shapeNames
-        self._nShapes=len(shapeNames)
-        self.boundaryBuffer:int=boundaryBuffer
-        self.dictOfProjShapes=dict()
-        if len(self.shapeCategories) > 1:
-            for cat, key in zip(self.shapeCategories, self.shapeNames):
-                self.dictOfProjShapes[key] = {'cat': cat,
-                                              'data': self.data.loc[self.data[cat] == key]}
-                # self.dictProjShapes[key] = self.data.loc[self.data[cat] == key]
+        if isinstance(dataOrFileName, (pathlib.Path, str)):
+            import geopandas as gpd
+            data = gpd.read_file(dataOrFileName)
+            self.data = data
         else:
-            for key in shapeNames:
-                self.dictOfProjShapes[key] = {'cat': self.shapeCategories,
-                                              'data': self.data.loc[self.data[self.shapeCategories] == key]}
+            self.data=dataOrFileName
+        self.shapeNameColDict=dict()
+        self.projShapes=dict()
+        if shapeNameColDict: 
+            self.shapeNameColDict.update(shapeNameColDict)
+            for key in self.shapeNameColDict.keys():
+                col = self.shapeNameColDict[key]
+                self.projShapes.update({key:{'cat': col,
+                                             'data': self.data.loc[self.data[col] == str(key)]}
+                                       })
+        self._nShapes=len(self.shapeNameColDict)
+        self.boundaryBuffer:int=boundaryBuffer            
         self._dissolved = False
         self._buffered = False
-        self.projBounds = False
-
-    def __setstate__(self, k): return getattr(self)
-
+        self.projBounds = False                                        
+                                            
     def printUnique(self, include:list=None, exclude:list=['gid', 'upid', 'geometry'],
                     excludeNumeric:bool=True, maxLineLength:int=100):
         '''
@@ -250,19 +241,19 @@ class PrepShapes():
             from matplotlib.legend import Legend
             handles = []
             labels = []
-        for c, shp in zip(color, self.shapeNames):
+        for c, shp in zip(color, self.shapeNameColDict.keys()):
             cpoly = c if polyfill else 'none'
             if kwds:
-                ax = self.dictOfProjShapes[shp]['data'].plot(categorical=True, figsize=figsize,
+                ax = self.projShapes[shp]['data'].plot(categorical=True, figsize=figsize,
                                                              ax=ax, facecolor=cpoly, 
                                                              edgecolor=c, alpha=sAlpha, **kwds)
-                if plotBuffer: ax = self.dictOfProjShapes[shp]['buffer'].plot(ax=ax, facecolor=cpoly, 
+                if plotBuffer: ax = self.projShapes[shp]['buffer'].plot(ax=ax, facecolor=cpoly, 
                                                                               edgecolor=c, alpha=bAlpha, **kwds)
             else:
-                ax = self.dictOfProjShapes[shp]['data'].plot(categorical=True, figsize=figsize,
+                ax = self.projShapes[shp]['data'].plot(categorical=True, figsize=figsize,
                                                              ax=ax, facecolor=cpoly, 
                                                              edgecolor=c, alpha=sAlpha) 
-                if plotBuffer: ax = self.dictOfProjShapes[shp]['buffer'].plot(ax=ax, facecolor=cpoly, 
+                if plotBuffer: ax = self.projShapes[shp]['buffer'].plot(ax=ax, facecolor=cpoly, 
                                                                               edgecolor=c, alpha=bAlpha)
             if legend: 
                 handles.append(Line2D([], [], color=c, lw=0, marker='o', markerfacecolor='none'))
@@ -288,12 +279,12 @@ class PrepShapes():
             force running dissolve again even if you already called it in the past.
         '''
         if forceDissolve or not self._dissolved:
-            for key in self.shapeNames:
-                column = self.dictOfProjShapes[key]['cat'] 
-                dissolvedShape = self.dictOfProjShapes[key]['data'][[column, 'geometry']].dissolve(by=column,
-                                                                                                   aggfunc='first',
-                                                                                                   as_index=False)
-                self.dictOfProjShapes[key].update({'dataDissolved': dissolvedShape})
+            for key in self.shapeNameColDict.keys():
+                column = self.projShapes[key]['cat'] 
+                dissolvedShape = self.projShapes[key]['data'][[column, 'geometry']].dissolve(by=column,
+                                                                                             aggfunc='first',
+                                                                                             as_index=False)
+                self.projShapes[key].update({'dataDissolved': dissolvedShape})
             self._dissolved = True
         else:
             print('shapes already dissolved')
@@ -314,9 +305,9 @@ class PrepShapes():
                 raise ValueError(f"'default' or a value are the two currently supported buffer values. You passed:{buffer}")
         if addPercent:
             buffer = buffer * 1.1
-        for key in self.shapeNames:
+        for key in self.shapeNameColDict.keys():
             dataToBuffer = 'dataDissolved' if self._dissolved else 'data'
-            self.dictOfProjShapes[key].update({'buffer': self.dictOfProjShapes[key][dataToBuffer].buffer(buffer)})
+            self.projShapes[key].update({'buffer': self.projShapes[key][dataToBuffer].buffer(buffer)})
         if not self._buffered:
             self._buffered = True
 
@@ -343,12 +334,12 @@ class PrepShapes():
         '''
        # for key in self.dictOfProjShapes.keys():
         data = 'buffer' if buffer else 'data'
-        minXList = [self.dictOfProjShapes[key][data].bounds.minx.values for key in self.dictOfProjShapes]
-        maxXList = [self.dictOfProjShapes[key][data].bounds.maxx.values for key in self.dictOfProjShapes]
-        minYList = [self.dictOfProjShapes[key][data].bounds.miny.values for key in self.dictOfProjShapes]
-        maxYList = [self.dictOfProjShapes[key][data].bounds.maxy.values for key in self.dictOfProjShapes]
+        minXList = [self.projShapes[key][data].bounds.minx.values for key in self.projShapes]
+        maxXList = [self.projShapes[key][data].bounds.maxx.values for key in self.projShapes]
+        minYList = [self.projShapes[key][data].bounds.miny.values for key in self.projShapes]
+        maxYList = [self.projShapes[key][data].bounds.maxy.values for key in self.projShapes]
 
         minBounds = {'minx':max(minXList), 'miny':max(minYList), 
-             'maxx':min(maxXList), 'maxy':min(maxYList)}
+                     'maxx':min(maxXList), 'maxy':min(maxYList)}
         self.__dict__.update({'projBounds': pd.DataFrame(minBounds)})
 
