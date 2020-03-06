@@ -4,18 +4,40 @@ import rasterio
 import numpy as np
 import shapely
 
-def get_tmp_file(dir:[pathlib.Path, str]=None):
+import typing
+#for type annotations
+from numbers import Number
+from typing import Any, AnyStr, Callable, Collection, Dict, Hashable, Iterator, List, Mapping, NewType, Optional
+from typing import Sequence, Tuple, TypeVar, Union
+
+def get_tmp_file(dir:Union[pathlib.Path, str]=None):
     '''Create and return a tmp filename, optionally at a specific path.
         `os.remove` when done with it.'''
     with tempfile.NamedTemporaryFile(delete=False, dir=dir) as f: return f.name
 
 
 class PredictorByDistance():
-    def __init__(self, preppedShape, rasterTemplate, architect='varriogram', archType='exponential', archRange=10000, modelDir='models'):
+    def __init__(self, preppedShape, rasterTemplate, architect:str='varriogram', archType:str='exponential',
+                 archRange:float=10000, modelDir:Union[pathlib.Path, str]='models'):
         '''
         distance based predictor. takes the distance from 2 or more shapes units and calculates
         a prospectivity value between 0 (unlikely) and 1 (likely). uses a pseudo exponential
         varriogram weighting to calculates prospectivity weights based on max range
+
+        Parameters
+        ----------
+        preppedShape: 
+            an initialized prepShape() class
+        rasterTemplate:
+            an initialized rasterTemplate
+        architect:str (default 'varriogram')
+            currently only 1 weighting predictor architect is set up and that is a pseudo varriogram
+        archType:str (default 'exponential')
+            currently only one style of varriogram model is set up and that is the exponential varriogram
+        archRange:float (default 10000)
+            the range used in the varriogram calculations. sets max range for your predictor
+        modelDir:Union[pathlib.Path, str] (default'models')
+            path to save / load prediction and distance raster to / from
         '''
         self.shapes = preppedShape.dictOfProjShapes
         self.shapeKeys = self.shapes.keys()
@@ -43,12 +65,16 @@ class PredictorByDistance():
         os.remove(tmpF)
 
     def xy(self, row:int, col:int, offset='center'):
-        '''Returns the coordinates `(x,y)` of a cell at row and col. the pixels center is returned by default
-        This functino is using the transform.xy() function from rasterio
+        '''Returns the coordinates `(x,y)` of a cell at row and col index. the pixels center is returned by default
+        This function is using the transform.xy() function from rasterio
         '''
         return rasterio.transform.xy(self.rasterTransform, rows=row, cols=col, offset=offset)
     
     def updateArchitect(self, architect=False, archType=False, archRange=False):
+        ''' 
+        update the architect used
+        current only 1 architect type and model are implemented... so don't use?!?
+        '''
 
         if architect:
             self.__dict__.update({'architect': architect})
@@ -86,15 +112,21 @@ class PredictorByDistance():
                 else:
                     self.distRasters[key][idxR][idxC] = dist
 
-    def predict(self, updateDistance:bool=True, distKwargs=None, varrioKwargs=None):
+    def predict(self, updateDistance:bool=True, distKwargs:Optional[dict]=None, varrioKwargs:Optional[dict]=None):
         '''
-        updates distance matrix for each shape using self.distanceMatrix()
-        Then calculated a weighted prediction using the pseudo varriogram. 
+        calculates a weighted prediction using the pseudo varriogram. 
         This weights the predictions so that they drop to 0 when the range from either 
         of the shapes reaches the varriogram range.
         
-        distKwargs:dict() = keyword arguments to pass to self.distanceMatrix
-        varrioKwargs:dict() = keyword arguments to pass to self.varriogramExp
+        Parameters
+        ----------
+        updateDistance:bool (default True)
+            by default it updates the distance matrix which is more time consuming then the prediction
+            if you are just change range, set to False
+        distKwargs:dict
+            keyword arguments to pass to self.distanceMatrix
+        varrioKwargs:dict
+            keyword arguments to pass to self.varriogramExp
         '''
         if updateDistance:
             if distKwargs:
@@ -113,7 +145,8 @@ class PredictorByDistance():
                 prediction = self.varriogramExp(distances)
             self.predictRaster[idxR][idxC] = prediction
 
-    def varriogramExp(self, distList, varrioRange='default', distFactor=1.5, smoothFactor=1):
+    def varriogramExp(self, distList:list, varrioRange:Optional[float]='default',
+                      distFactor:Optional[float]=1.5, smoothFactor:Optional[float]=1):
         '''
         use a pseudo varriogram for calculating a weighted prediction. this gives you a
         smooth prediction from 1 (most likely) to 0 (least likely) based on the distance to the 
@@ -124,16 +157,25 @@ class PredictorByDistance():
         take a little longer to drop to near zero if the distance to only 1 shape reaches the 
         range.
 
-        varrioRange:[int, float]= by default uses self.archRange but can change to a new range.
-        distFactor:[int, float]=1.5 - the larger the number the steeper the change
-        smoothFactor:[int, float]=1 - the larger the number the shallower the change
+        Parameters
+        ----------
+        varrioRange:float
+            by default uses self.archRange but can change to a new range
+        distFactor:float (default 1.5)
+            the larger the number the steeper the change
+        smoothFactor:float (default 1)
+            the larger the number the shallower the change
+
+        Example
+        ------- 
 
         prediction calculated from 2 distances and default values:
         distFactor=1.5, smoothFactor=1
 
-        predict = 1 * math.exp( -((1.5 * dist1)**2/varrioRange**2) -((1.5 * dist2)**2/varrioRange**2) )
+        predict = 1 * math.exp( -( (1.5 * dist1)**2 / varrioRange**2 ) -( (1.5 * dist2)**2 / varrioRange**2) )
 
-
+        .. math::
+            predict = 1 * math.exp( -( (1.5 * dist1)^2 / varrioRange^2 ) - ( (1.5 * dist2)^2 / varrioRange^2 ) )
         '''
         # determine if we are using the default varriogram/architect range or a new range
         if isinstance(varrioRange, str):
@@ -145,19 +187,20 @@ class PredictorByDistance():
             vRange = varrioRange
         # calculate the weighted prediction
         power = list()
-        #print(distList)
-        #print(vRange)
-        #print(distFactor)
         for d in distList:
-            #print(d, vRange, distFactor)
             power.append(self.calcPower(d, vRange, distFactor))
         power = np.nansum(power)
 
         return smoothFactor * math.exp(power)
 
-    def calcPower(self, dist, archRange, distFactor):
+    def calcPower(self, dist:float, archRange:float, distFactor:float):
         '''
         return the distance factor used in varriogram exponential calculation
+
+        Example:
+        distFactor=1.5
+
+        power = -( (1.5 * dist1)**2 / archRange**2 )
         '''
         return -((distFactor * dist)**2/archRange**2)
 
