@@ -368,22 +368,30 @@ class PredictorByDistance():
                 sRaster.write(targets[flKey], 1)
 
 
-    def loadRaster(self, path:[pathlib.Path, str], rasterType:str='prediction'):
+    def loadRaster(self, name:[pathlib.Path, str], rasterType:str='prediction'):
         '''
-        load a prediction raster that has been previously saved.
+        load a prediction state that has been previously saved.
+        can pick between loading just the prediction raster or also the distance rasters
+
+        Parameters
+        ----------
+        name:[Path, str]
+            name of state to load. Will use model directory set in class
+        rasterType:str (default 'prediction')
+            which raster's to load. Options include 'all', 'prediction', or 'distances'
         '''
-        if isinstance(path, str): path = pathlib.Path(path)
-        mPath = self.modelDir.joinpath(path)
+        if isinstance(name, str): name = pathlib.Path(name)
+        mPath = self.modelDir.joinpath(name)
         rasterType = rasterType.lower()
-        if rasterType =='prediction':
+        if rasterType in ['prediction', 'all', 'p']:
             possiblePaths = [mPath,
                              mPath.with_suffix('.tiff'), 
                              mPath.with_name(mPath.stem + '_pred' + mPath.suffix), 
                              mPath.with_name(mPath.stem + '_pred' + mPath.suffix).with_suffix('.tiff'),
-                             path, 
-                             path.with_suffix('.tiff'), 
-                             path.with_name(path.stem + '_pred' + path.suffix), 
-                             path.with_name(path.stem + '_pred' + path.suffix).with_suffix('.tiff')]
+                             name, 
+                             name.with_suffix('.tiff'), 
+                             name.with_name(name.stem + '_pred' + name.suffix), 
+                             name.with_name(name.stem + '_pred' + name.suffix).with_suffix('.tiff')]
             idx = 0
             while idx < len(possiblePaths):
                 if possiblePaths[idx].exists(): 
@@ -391,10 +399,12 @@ class PredictorByDistance():
                     break
                 idx += 1
             else:
-                raise ValueError(f"raster path:{path} not found")
-
+                raise ValueError(f"raster path:{name} not found")
             self.predictRaster = rasterio.open(target).read(1)
-        else:
+
+        if rasterType in ['distances', 'distance', 'd', 'all'] :
             for key in self.shapeKeys:
                 shpPath = mPath.with_name(mPath.stem + '_' + key).with_suffix('.tiff')
                 self.distRasters.update({key: rasterio.open(shpPath).read(1)})
+        if rasterType not in ['distances', 'distance', 'd', 'prediction', 'all', 'p']:
+            raise ValueError(f"{name}: rasterType not in expected options. Pick one of ['distances', 'distance', 'd', 'prediction', 'all', 'p']")
