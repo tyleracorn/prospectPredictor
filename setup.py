@@ -4,7 +4,7 @@ def readme():
     with open('README.rst') as f:
         return f.read()
 
-setup(name='prospectpredictor',
+setup(name='prospectpredictor-tyleracorn',
       version='0.1',
       description='prospectivity prediction based on GIS shapefiles',
       long_description=readme(),
