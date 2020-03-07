@@ -36,7 +36,7 @@ Generating a prospectivity heat map
 
 Using the package you can generate a heat map with liklihood of finding the element (based on a distance from 2 or more shape categories). The predictor generates prediction values ranging from 0, being least likely (i.e. 0%), to 1, being most likely (i.e. 100%). As an example here is a heat map generated from the included dataset.
 
-.. figure:: ./Data/predictionHeatMap_projectBoundary.png
+.. figure:: Data/predictionHeatMap_projectBoundary.png
     :width: 600px
     :alighn: center
     :height: 600px
@@ -50,4 +50,4 @@ An example.ipynb is included in the repo to demostate how to use the package.
 
 Dataset 
 =======
-the included dataset is from the `British Columbia Geologica Survey <https://www2.gov.bc.ca/gov/content/industry/mineral-exploration-mining/british-columbia-geological-survey>`
+the included dataset is from the `British Columbia Geologica Survey <https://www2.gov.bc.ca/gov/content/industry/mineral-exploration-mining/british-columbia-geological-survey>`_.
