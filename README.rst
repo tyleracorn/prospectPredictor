@@ -29,15 +29,14 @@ Prediction Weighting Schema
 
 Currently this package uses a pseudo variogram style weighting schema with the following model (for location *i* and as an example 2 distances)
 
-.. math::
-    pred_i = 1*e^{\left ( \frac{-1.5*dist1_{i}^{2}}{range^2} - \frac{-1.5*dist2_{i}^{2}}{range^2} \right )}
+.. figure:: .CodeCogsEqn.gif
 
 Generating a prospectivity heat map
 ===================================
 
 Using the package you can generate a heat map with liklihood of finding the element (based on a distance from 2 or more shape categories). The predictor generates prediction values ranging from 0, being least likely (i.e. 0%), to 1, being most likely (i.e. 100%). As an example here is a heat map generated from the included dataset.
 
-.. figure: https://github.com/tyleracorn/prospectPredictor/blob/master/Data/predictionHeatMap_projectBoundary.png
+.. figure:: https://github.com/tyleracorn/prospectPredictor/blob/master/Data/predictionHeatMap_projectBoundary.png
     :width: 600px
     :alighn: center
     :height: 600px
