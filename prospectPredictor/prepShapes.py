@@ -29,17 +29,17 @@ def printLists(listToPrint:list, maxLineLength:int=100, sep:str='||'):
     startSep = sep + ' '
     varSep = ' ' + sep + ' '
     lineToPrint = startSep
-
     for var in listToPrint:
-        if len(var) + len(lineToPrint) + len(sep) + 2 <= maxLineLength:
+        if len(var) + len(lineToPrint) + len(varSep) <= maxLineLength:
             lineToPrint = lineToPrint + var + varSep
         else:
+            # if count < 1: lineToPrint = lineToPrint + varSep
             print(lineToPrint)
-            lineToPrint = startSep + var
+            lineToPrint = startSep + var + varSep
     print(lineToPrint)
 
 
-def printDictOfLists(dict:dict, keys:list, maxLineLength:int=100,
+def printDictOfLists(printDict:dict, keys:list, maxLineLength:int=100,
                      varSep:str='||', keySep:str='\n--------'):
     '''
     small function for printing list in a way that is a bit easier to read
@@ -60,32 +60,8 @@ def printDictOfLists(dict:dict, keys:list, maxLineLength:int=100,
     '''
     for key in keys:
         print(key, keySep)
-        printLists(dict[key], maxLineLength=maxLineLength, sep=varSep)
+        printLists(printDict[key], maxLineLength=maxLineLength, sep=varSep)
         print('\n')
-
-
-def printUnique(geodataframe, include:list=None, exclude:list=['gid', 'upid', 'geometry'],
-                excludeNumeric:bool=True):
-    '''
-    small function to print out unique values in all columns or some columns.
-    assumes you are passing it a GeoPandas dataframe so it will exclude some columns.
-
-    '''
-    if excludeNumeric:
-        gdframe = geodataframe.select_dtypes(exclude='number')
-    else:
-        gdframe = geodataframe
-
-    if include:
-        catCols = [col for col in gdframe.columns.tolist() if col in include]
-    else:
-        catCols = [col for col in gdframe.columns.tolist() if col not in exclude]
-
-    categoryDesc = dict()
-    for key in catCols:
-        categoryDesc[key] = gdframe[key].unique().tolist()
-
-    printDictOfLists(categoryDesc, categoryDesc.keys())
 
 
 def get_tmp_file(dir:[pathlib.Path, str]=None)->"tempFile name":
