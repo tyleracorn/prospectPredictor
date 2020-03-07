@@ -10,6 +10,7 @@ bedrock units.
 Overview of Package
 ********************
 The package utilizes 3 main classes. 
+
 - PrepShapes
 
     - handles exploring and prepping a shapefile and determining the project boundary. It can read in a single shapefile (using geopandas) and then you can use it to select the polygons of interest. 
@@ -29,7 +30,6 @@ Prediction Weighting Schema
 Currently this package uses a pseudo variogram style weighting schema with the following model (for location *i* and as an example 2 distances)
 
 .. math::
-
     pred_i = 1*e^{\left ( \frac{-1.5*dist1_{i}^{2}}{range^2} - \frac{-1.5*dist2_{i}^{2}}{range^2} \right )}
 
 Generating a prospectivity heat map

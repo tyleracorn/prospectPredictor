@@ -13,3 +13,5 @@ dependencies:
   - matplotlib
   - pandas=1.0.1
   - pylint
+  - sphinx
+  - twine
