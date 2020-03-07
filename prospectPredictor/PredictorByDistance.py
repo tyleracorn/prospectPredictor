@@ -1,25 +1,8 @@
 '''predictor class for prediction based on distance to different shape files'''
-import pathlib, math, os, tempfile
 import rasterio
 import numpy as np
 import shapely
-
-import typing
-#for type annotations
-from numbers import Number
-from typing import Any, AnyStr, Callable, Collection, Dict, Hashable, Iterator, List, Mapping, NewType, Optional
-from typing import Sequence, Tuple, TypeVar, Union
-
-def get_tmp_file(dir:Union[pathlib.Path, str]=None):
-    '''Create and return a tmp filename, optionally at a specific path.
-        `os.remove` when done with it.'''
-    with tempfile.NamedTemporaryFile(delete=False, dir=dir) as f: return f.name
-
-def _test_cmap(cmap):
-    if isinstance(cmap, str):
-        if cmap.lower() == 'jet':
-            raise ValueError("ahh seriously? There are so many better colormaps then Jet. Go back and try again")
-
+from .utils import *
 
 class PredictorByDistance():
     def __init__(self, preppedShape, rasterTemplate, architect:str='varriogram', archType:str='exponential',
@@ -260,7 +243,7 @@ class PredictorByDistance():
         '''
         import rasterio.plot as rioplot
         ax, fig, transform = self._plotSetup(ax, figsize, transform)
-        _test_cmap(cmap)
+        test_cmap(cmap)
         
         ax = rioplot.show(self.predictRaster, ax=ax, cmap=cmap, transform=transform)
         ax.set_title(f'Prediction based on distances to shapes. Varriogram Range:{self.archRange} ({self.rasterTemplate.crs.linear_units})')
@@ -311,7 +294,7 @@ class PredictorByDistance():
         '''
         import rasterio.plot as rioplot
         ax, fig, transform = self._plotSetup(ax, figsize, transform)
-        _test_cmap(cmap)
+        test_cmap(cmap)
 
         ax = rioplot.show(self.distRasters[rasterKey], ax=ax, cmap=cmap, transform=transform)
         ax.set_title(f'Distances to {rasterKey}')
