@@ -29,7 +29,7 @@ Prediction Weighting Schema
 
 Currently this package uses a pseudo variogram style weighting schema with the following model (for location *i* and as an example 2 distances)
 
-.. imag:: CodeCogsEqn.gif
+.. image:: CodeCogsEqn.gif
 
 Generating a prospectivity heat map
 ===================================
