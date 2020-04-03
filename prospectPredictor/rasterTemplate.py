@@ -1,11 +1,8 @@
 '''create a template for the rasters that the predictor class(es) will write to'''
 import rasterio
 import numpy as np
-import typing
-#for type annotations
-from numbers import Number
-from typing import Any, AnyStr, Callable, Collection, Dict, Hashable, Iterator, List, Mapping, NewType, Optional
-from typing import Sequence, Tuple, TypeVar, Union
+
+from .utils import *
 
 class RasterTemplate():
     def __init__(self, projBounds, cellWidthX:Union[int, float], cellHeightY:Union[int, float], 
